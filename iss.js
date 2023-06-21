@@ -23,4 +23,105 @@ const fetchMyIP = function(callback) {
   });
 };
 
-module.exports = { fetchMyIP };
+
+const fetchCoordsByIP = (ip, callback) => {
+  const url = `https://freegeoip.app/json/${ip}`;
+
+  request(url, (error, response, body) => {
+    if (error) {
+      callback(error, null);
+      return;
+    }
+
+    // const parsedBody = JSON.parse(body);
+    // // check if "success" is true or not
+    // if (!parsedBody.success) {
+    //   const message = `Success status was ${parsedBody.success}. Server message says: ${parsedBody.message} when fetching for IP ${parsedBody.ip}`;
+    //   callback(Error(message), null);
+    //   return;
+    // }
+
+    if (response.statusCode !== 200) {
+      const errorMessage = `Unexpected status code: ${response.statusCode}`;
+      callback(errorMessage, null);
+      return;
+    }
+
+    try {
+      const data = JSON.parse(body);
+      const coords = {
+        latitude: data.latitude,
+        longitude: data.longitude
+      };
+      callback(null, coords);
+    } catch (parseError) {
+      callback(parseError, null);
+    }
+  });
+};
+
+
+
+const fetchISSFlyOverTimes = (coords, callback) => {
+  const { latitude, longitude } = coords;
+  const url = `http://api.open-notify.org/iss-pass.json?lat=${latitude}&lon=${longitude}`;
+
+  request(url, (error, response, body) => {
+    if (error) {
+      callback(error, null);
+      return;
+    }
+
+    if (response.statusCode !== 200) {
+      callback(Error(`Unexpected status code: ${response.statusCode}`), null);
+      return;
+    }
+
+    try {
+      const data = JSON.parse(body);
+      const flyOverTimes = data.response;
+      callback(null, flyOverTimes);
+    } catch (parseError) {
+      callback(parseError, null);
+    }
+  });
+};
+
+
+const nextISSTimesForMyLocation = function(callback) {
+  fetchMyIP((error, ip) => {
+    if (error) {
+      callback(error, null);
+      return;
+    }
+
+    fetchCoordsByIP(ip, (error, loc) => {
+      if (error) {
+        callback(error, null);
+        return;
+      }
+
+      fetchISSFlyOverTimes(loc, (error, nextPasses) => {
+        if (error) {
+          callback(error, null);
+          return;
+        }
+
+        callback(null, nextPasses);
+      });
+    });
+  });
+
+
+
+
+
+  
+};
+
+
+
+
+
+
+module.exports = { fetchMyIP, fetchCoordsByIP, fetchISSFlyOverTimes, nextISSTimesForMyLocation };
